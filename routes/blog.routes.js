@@ -4,6 +4,7 @@ const Blog = require("../models/blog.model");
 const { authenticate, authorizeAdmin } = require("../utils/auth");
 const upload = require("../utils/upload");
 const slugify = require("../utils/slugify");
+const Category = require("../models/category.model");
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.get("/", async (req, res) => {
     let query = Blog.find(filter)
       .sort({ createdAt: -1 })
       .lean() // Use lean() to get plain JS objects instead of Mongoose documents (faster)
-      .select('-content') // Exclude large content field initially for better performance
+      .select("-content") // Exclude large content field initially for better performance
       .populate("categoryId", "name")
       .populate("authorId", "name")
       .populate("author", "name");
@@ -54,9 +55,10 @@ router.get("/", async (req, res) => {
 
     // Get total count with a separate, simpler query
     // Use estimatedDocumentCount if no filters for better performance
-    const totalCount = Object.keys(filter).length === 0 
-      ? await Blog.estimatedDocumentCount()
-      : await Blog.countDocuments(filter).maxTimeMS(10000);
+    const totalCount =
+      Object.keys(filter).length === 0
+        ? await Blog.estimatedDocumentCount()
+        : await Blog.countDocuments(filter).maxTimeMS(10000);
 
     // Prepare response
     const response = {
@@ -76,16 +78,20 @@ router.get("/", async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error(error);
-    
+
     // Provide more specific error message for timeouts
-    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+    if (
+      error.name === "MongooseError" &&
+      error.message.includes("buffering timed out")
+    ) {
       return res.status(500).json({
         success: false,
-        message: "Query timed out. Try using pagination or narrowing your search criteria.",
+        message:
+          "Query timed out. Try using pagination or narrowing your search criteria.",
         error: error.message,
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch blogs",
@@ -420,7 +426,7 @@ router.post("/", authenticate, authorizeAdmin, (req, res) => {
           message: "Blog image is required",
         });
       }
-      
+
       // Validate required fields
       if (!title) {
         return res.status(400).json({
@@ -428,53 +434,54 @@ router.post("/", authenticate, authorizeAdmin, (req, res) => {
           message: "Title is required",
         });
       }
-      
+
       if (!content) {
         return res.status(400).json({
           success: false,
           message: "Content is required",
         });
       }
-      
+
       if (!excerpt) {
         return res.status(400).json({
           success: false,
           message: "Excerpt is required",
         });
       }
-      
+
       if (!imageAlt) {
         return res.status(400).json({
           success: false,
           message: "Image alt text is required",
         });
       }
-      
+
       if (!categoryId) {
         return res.status(400).json({
           success: false,
           message: "Category is required",
         });
       }
-      
+
       if (!authorId) {
         return res.status(400).json({
           success: false,
           message: "Author is required",
         });
       }
-      
+
       // Ensure tags is properly formatted if provided
       let formattedTags = [];
-      if (tags !== undefined && tags !== null && tags !== '') {
+      if (tags !== undefined && tags !== null && tags !== "") {
         if (Array.isArray(tags)) {
           // Filter out any empty tags
-          formattedTags = tags.filter(tag => tag && tag.trim() !== '');
-        } else if (typeof tags === 'string') {
+          formattedTags = tags.filter((tag) => tag && tag.trim() !== "");
+        } else if (typeof tags === "string") {
           // Split by comma and filter out empty tags
-          formattedTags = tags.split(',')
-            .map(tag => tag.trim())
-            .filter(tag => tag !== '');
+          formattedTags = tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag !== "");
         } else if (tags) {
           // Only validate if tags has a value but is not a string or array
           return res.status(400).json({
@@ -510,7 +517,8 @@ router.post("/", authenticate, authorizeAdmin, (req, res) => {
         if (slugExists) {
           return res.status(400).json({
             success: false,
-            message: "A blog with this slug already exists. Please use a different slug.",
+            message:
+              "A blog with this slug already exists. Please use a different slug.",
           });
         }
       }
@@ -622,7 +630,7 @@ router.put("/:id", authenticate, authorizeAdmin, (req, res) => {
       // Check if a custom slug was provided
       if (slug !== undefined) {
         // If slug is empty string, don't update it (keep the existing one)
-        if (slug !== '') {
+        if (slug !== "") {
           const customSlug = slugify(slug);
           // Only check for duplicates if the slug is actually changing
           if (customSlug !== blog.slug) {
@@ -647,59 +655,60 @@ router.put("/:id", authenticate, authorizeAdmin, (req, res) => {
       }
 
       // Validate required fields
-      if (title === '') {
+      if (title === "") {
         return res.status(400).json({
           success: false,
           message: "Title cannot be empty",
         });
       }
-      
-      if (content === '') {
+
+      if (content === "") {
         return res.status(400).json({
           success: false,
           message: "Content cannot be empty",
         });
       }
-      
-      if (excerpt === '') {
+
+      if (excerpt === "") {
         return res.status(400).json({
           success: false,
           message: "Excerpt cannot be empty",
         });
       }
-      
-      if (imageAlt === '') {
+
+      if (imageAlt === "") {
         return res.status(400).json({
           success: false,
           message: "Image alt text cannot be empty",
         });
       }
-      
-      if (categoryId === null || categoryId === '') {
+
+      if (categoryId === null || categoryId === "") {
         return res.status(400).json({
           success: false,
           message: "Category is required",
         });
       }
-      
-      if (authorId === null || authorId === '') {
+
+      if (authorId === null || authorId === "") {
         return res.status(400).json({
           success: false,
           message: "Author is required",
         });
       }
-      
+
       // Format tags if provided
       let formattedTags = [];
-      if (tags !== undefined && tags !== null && tags !== '') {
+      if (tags !== undefined && tags !== null && tags !== "") {
         if (Array.isArray(tags)) {
           // Filter out any empty tags
-          formattedTags = tags.filter(tag => tag && tag.trim() !== '');
-        } else if (typeof tags === 'string') {
+          formattedTags = tags.filter((tag) => tag && tag.trim() !== "");
+        } else if (typeof tags === "string") {
           // Split by comma and filter out empty tags
-          formattedTags = tags.split(',')
-            .map(tag => tag.trim())
-            .filter(tag => tag !== '');
+          formattedTags = tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag !== "");
         } else if (tags) {
           // Only validate if tags has a value but is not a string or array
           return res.status(400).json({
@@ -954,5 +963,59 @@ router.get("/featured", async (req, res) => {
   }
 });
 
-module.exports = router;
+// @route   GET /api/blogs/latest
+// @desc    Get latest blogs from all categories with a limit for each category
+// @access  Public
+router.get("/latest/:limit", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5; // Default limit to 5
 
+    // Get all categories
+    const categories = await Category.find();
+
+    // Filter for published blogs with publishDate in the past or equal to current date
+    const currentDate = new Date();
+    let filter = {};
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { publishDate: { $lte: currentDate } },
+        { publishDate: { $exists: false } }, // For backward compatibility with old posts
+      ],
+    });
+
+    // Fetch latest blogs for each category
+    const blogsByCategory = await Promise.all(
+      categories.map(async (category) => {
+        const blogs = await Blog.find({
+          categoryId: category._id,
+          status: "published",
+          ...filter,
+        })
+          .sort({ publishDate: -1 })
+          .limit(limit)
+          .populate("categoryId", "name")
+          .populate("authorId", "name")
+          .populate("author", "name");
+        return {
+          category: category.name,
+          blogs,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      blogsByCategory,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch latest blogs from all categories",
+      error: error.message,
+    });
+  }
+});
+
+module.exports = router;
